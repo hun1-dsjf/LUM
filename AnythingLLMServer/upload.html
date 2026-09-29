@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>AnythingLLM 文档上传</title>
+</head>
+<body>
+  <h2>向 AnythingLLM 第一个工作区上传文档并嵌入</h2>
+  <input type="file" id="file">
+  <button id="upload">上传并嵌入</button>
+  <pre id="result" style="white-space: pre-wrap; font-family: monospace;"></pre>
+
+  <script>
+    const BASE = 'http://localhost:3001';
+    const API_KEY = 'DAPEVPY-7334KAN-GDX5CXQ-326EN1J';
+    const authHeaders = { Authorization: 'Bearer ' + API_KEY };
+
+    const fileInput = document.getElementById('file');
+    const btn = document.getElementById('upload');
+    const out = document.getElementById('result');
+
+    btn.addEventListener('click', async () => {
+      out.textContent = '';
+      if (!fileInput.files[0]) {
+        out.textContent = '请先选择一个文件。';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '上传中…';
+      try {
+        // 1. 获取第一个工作区的 slug
+        const wsRes = await fetch(BASE + '/api/v1/workspaces', { headers: authHeaders });
+        if (!wsRes.ok) throw new Error('获取工作区失败：HTTP ' + wsRes.status);
+        const wsData = await wsRes.json();
+        const slug = wsData.workspaces && wsData.workspaces[0] && wsData.workspaces[0].slug;
+        if (!slug) throw new Error('没有可用的工作区。');
+        out.textContent = '使用工作区 slug: ' + slug + '\n上传中…\n';
+
+        // 2. 上传文档并自动嵌入到该工作区
+        const fd = new FormData();
+        fd.append('file', fileInput.files[0]);
+        fd.append('addToWorkspaces', slug);
+
+        const upRes = await fetch(BASE + '/api/v1/document/upload', {
+          method: 'POST',
+          headers: authHeaders,
+          body: fd
+        });
+        const text = await upRes.text();
+        let data;
+        try { data = JSON.parse(text); } catch (e) { data = text; }
+        out.textContent = '工作区 slug: ' + slug + '\n\nHTTP ' + upRes.status + '\n' + JSON.stringify(data, null, 2);
+      } catch (e) {
+        out.textContent = '错误: ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '上传并嵌入';
+      }
+    });
+  </script>
+</body>
+</html>
