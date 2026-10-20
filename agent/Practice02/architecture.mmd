@@ -1,0 +1,71 @@
+%% chat2.py 代码架构图
+%% 流式 Function Calling Agent（OpenAI SDK v1+ / DeepSeek 兼容端点）
+
+flowchart TD
+    %% ===== 模块分层 =====
+    subgraph L1["1. 客户端初始化层"]
+        CLIENT["OpenAI client<br/>base_url=api.deepseek.com<br/>MODEL = deepseek-chat"]
+    end
+
+    subgraph L2["2. 工具契约层"]
+        TOOLS["TOOLS<br/>JSON Schema 声明"]
+        T1["getDate<br/>无参数"]
+        T2["isLeapYear<br/>year: integer"]
+        TOOLS --> T1
+        TOOLS --> T2
+    end
+
+    subgraph L3["3. 本地工具实现层"]
+        GETDATE["get_date()<br/>subprocess + cmd<br/>chcp 65001 + date /t + time /t"]
+        LEAP["is_leap_year(year)<br/>纯 Python 取模判断"]
+        TOOLMAP["TOOL_MAP<br/>name -> callable"]
+        GETDATE --> TOOLMAP
+        LEAP --> TOOLMAP
+    end
+
+    subgraph L4["4. 流式解析辅助层"]
+        PARSE["parse_stream_chunk()<br/>消费 chunk，返回文本<br/>同时累积 tool_calls 碎片"]
+        INIT["_init_tool_call()<br/>初始化缓冲结构"]
+        FIN["tool_calls_finished()<br/>判断 arguments 是否闭合<br/>返回标准化列表"]
+        PARSE --> INIT
+        PARSE -.-> FIN
+    end
+
+    subgraph L5["5. Agent 对话循环层"]
+        AGENT["agent_chat(user_input, messages)"]
+        S1["Step1 流式请求模型<br/>stream=True"]
+        S2["Step2 判定是否需要调用工具<br/>构造 assistant 消息"]
+        S3["Step3 执行工具<br/>追加 role=tool 消息<br/>continue 回到 Step1"]
+        S4["Step4 无工具调用<br/>本轮结束 break"]
+        AGENT --> S1 --> S2
+        S2 --> S3 --> S1
+        S2 --> S4
+    end
+
+    subgraph L6["6. 主入口层"]
+        MAIN["main()<br/>system prompt 初始化"]
+        TC1["测试用例1：现在几点了"]
+        TC2["测试用例2：2999 是否闰年"]
+        LOOP["交互循环 input('you> ')<br/>Ctrl+C / EOF 退出"]
+        MAIN --> TC1 --> TC2 --> LOOP
+    end
+
+    %% ===== 跨层依赖 =====
+    CLIENT --> AGENT
+    TOOLS --> S1
+    TOOLMAP --> S3
+    PARSE --> S1
+    FIN --> S2
+    AGENT --> S3
+    MAIN --> AGENT
+
+    %% ===== 运行时数据流 =====
+    subgraph DATA["运行时消息流 messages[]"]
+        D1["user 消息"]
+        D2["assistant 消息<br/>content + tool_calls"]
+        D3["tool 消息<br/>tool_call_id + result"]
+        D1 --> D2 --> D3
+        D3 -.回传模型.-> D2
+    end
+
+    AGENT -.读写.-> DATA
