@@ -10,14 +10,17 @@ chat-stream-tool-getDate.py
 """
 
 import json
+import os
 import subprocess
 
+from dotenv import load_dotenv
 from openai import OpenAI
 
 # ========== 1. 初始化客户端 ==========
-# 复用 Practice01 里的配置（DeepSeek 端点与 OpenAI 协议兼容）
+# 从脚本同目录的 .env 读取密钥，不要硬编码进源码
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 client = OpenAI(
-    api_key="sk-a5aaef985e1b4e2e9dac825af5ed7e32",
+    api_key=os.getenv("API_KEY"),
     base_url="https://api.deepseek.com",
 )
 MODEL = "deepseek-chat"

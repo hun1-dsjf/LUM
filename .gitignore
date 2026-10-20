@@ -19,6 +19,10 @@ desktop.ini
 .vscode/
 *.code-workspace
 
+# ===== 密钥与本地配置 =====
+.env
+config.ini
+
 # ===== Python 缓存与虚拟环境 =====
 __pycache__/
 *.py[cod]
