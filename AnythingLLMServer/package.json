@@ -1,0 +1,13 @@
+{
+  "name": "anythingllm-upload-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local reverse proxy that keeps the AnythingLLM API key server-side",
+  "scripts": {
+    "start": "node proxy-server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

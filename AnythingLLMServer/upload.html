@@ -11,9 +11,8 @@
   <pre id="result" style="white-space: pre-wrap; font-family: monospace;"></pre>
 
   <script>
-    const BASE = 'http://localhost:3001';
-    const API_KEY = 'DAPEVPY-7334KAN-GDX5CXQ-326EN1J';
-    const authHeaders = { Authorization: 'Bearer ' + API_KEY };
+    // 请求走本地代理（proxy-server.js），API Key 由代理在服务端附加，前端不再持有任何密钥
+    const PROXY = 'http://localhost:8787';
 
     const fileInput = document.getElementById('file');
     const btn = document.getElementById('upload');
@@ -29,7 +28,7 @@
       btn.textContent = '上传中…';
       try {
         // 1. 获取第一个工作区的 slug
-        const wsRes = await fetch(BASE + '/api/v1/workspaces', { headers: authHeaders });
+        const wsRes = await fetch(PROXY + '/api/v1/workspaces');
         if (!wsRes.ok) throw new Error('获取工作区失败：HTTP ' + wsRes.status);
         const wsData = await wsRes.json();
         const slug = wsData.workspaces && wsData.workspaces[0] && wsData.workspaces[0].slug;
@@ -41,9 +40,8 @@
         fd.append('file', fileInput.files[0]);
         fd.append('addToWorkspaces', slug);
 
-        const upRes = await fetch(BASE + '/api/v1/document/upload', {
+        const upRes = await fetch(PROXY + '/api/v1/document/upload', {
           method: 'POST',
-          headers: authHeaders,
           body: fd
         });
         const text = await upRes.text();
