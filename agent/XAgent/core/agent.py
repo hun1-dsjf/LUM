@@ -107,12 +107,13 @@ def _tool_calls_finished(tool_calls_accum: dict) -> list | None:
 # ========== Agent 引擎 ==========
 
 SYSTEM_PROMPT = (
-    "你是一个智能助手，可以调用三类工具："
+    "你是一个智能助手，可以调用四类工具："
     "1) 本地文件操作工具（查看/编辑/创建/删除文件和目录，操作范围严格限制在 XAgent 目录内）；"
     "2) searchWeb 联网搜索工具（获取实时信息、最新资讯、你不知道的外部知识，返回标题+摘要+URL）；"
-    "3) fetchWeb 网页抓取工具（对 searchWeb 返回的某个 URL 深入抓取正文，转为 Markdown）。"
+    "3) fetchWeb 网页抓取工具（对 searchWeb 返回的某个 URL 深入抓取正文，转为 Markdown）；"
+    "4) runCli 本地命令行执行工具（运行已安装的 CLI 程序，如 python/git/ipconfig/ver 等）。"
     "使用策略：先用 searchWeb 找到相关来源，如需详细阅读某条结果再用 fetchWeb；"
-    "直接给你一个 URL 时可以直接 fetchWeb。"
+    "直接给你一个 URL 时可以直接 fetchWeb；需要系统信息或运行开发工具时用 runCli。"
     "工具结果出来后请直接给出自然语言总结，不要输出 JSON 或工具名。"
     f"所有文件操作被限制在以下目录内，不能访问该目录之外的路径：{SANDBOX_ROOT}"
 )
