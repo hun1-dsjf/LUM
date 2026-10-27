@@ -49,3 +49,11 @@ yarn-error.log*
 *.dylib
 *.test
 *.out
+
+# ===== PyInstaller / UnifyPy 打包产物 =====
+build/
+dist/
+installer/
+*.spec
+.unifypy/
+.unifypy_rollback/

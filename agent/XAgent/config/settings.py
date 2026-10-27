@@ -3,12 +3,31 @@ from __future__ import annotations
 
 import configparser
 import os
+import sys
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
+
+def _resolve_root() -> str:
+    """XAgent 根目录定位，兼容开发模式和 PyInstaller 打包模式。
+
+    - 开发模式: __file__ 在 config/settings.py → 向上两级 = XAGENT_ROOT
+    - PyInstaller onefile: sys._MEIPASS 是解压临时目录，资源文件（--add-data）放这里
+    - PyInstaller onedir: sys.executable 所在目录
+    """
+    if getattr(sys, "frozen", False):
+        # 打包模式：优先用 _MEIPASS 找资源文件
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass and os.path.isdir(meipass):
+            return meipass
+        return os.path.dirname(sys.executable)
+    # 开发模式
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 # XAgent 根目录
-XAGENT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+XAGENT_ROOT = _resolve_root()
 
 # 加载 .env
 load_dotenv(os.path.join(XAGENT_ROOT, ".env"))
