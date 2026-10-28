@@ -18,6 +18,7 @@ from openai import AsyncOpenAI
 
 from config.settings import LLMConfig, SANDBOX_ROOT
 from tools import TOOL_MAP, TOOLS_SCHEMA
+from core.skill_loader import discover_skills, format_skills_for_prompt
 
 
 # ========== 事件回调协议（Core → UI）==========
@@ -106,7 +107,7 @@ def _tool_calls_finished(tool_calls_accum: dict) -> list | None:
 
 # ========== Agent 引擎 ==========
 
-SYSTEM_PROMPT = (
+_BASE_SYSTEM_PROMPT = (
     "你是一个智能助手，可以调用四类工具："
     "1) 本地文件操作工具（查看/编辑/创建/删除文件和目录，操作范围严格限制在 XAgent 目录内）；"
     "2) searchWeb 联网搜索工具（获取实时信息、最新资讯、你不知道的外部知识，返回标题+摘要+URL）；"
@@ -124,9 +125,14 @@ class Agent:
     """Agent 核心引擎（可复用实例，多轮对话共享 messages）。"""
     config: LLMConfig
     callback: EventCallback
-    messages: list = field(default_factory=lambda: [
-        {"role": "system", "content": SYSTEM_PROMPT}
-    ])
+    # 启动时扫描 skills（懒加载：只拿元数据，正文按需加载）
+    skills: list = field(default_factory=lambda: discover_skills(verbose=True))
+
+    def __post_init__(self) -> None:
+        """组装最终 System Prompt（base + skills 元数据块）。"""
+        skills_block = format_skills_for_prompt(self.skills)
+        full_prompt = _BASE_SYSTEM_PROMPT + skills_block
+        self.messages = [{"role": "system", "content": full_prompt}]
 
     def _build_client(self) -> AsyncOpenAI:
         return AsyncOpenAI(
