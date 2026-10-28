@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -77,17 +78,24 @@ def _find_skills_dir(start: Path) -> Optional[Path]:
 def discover_skills(project_root: Optional[str] = None, verbose: bool = False) -> List[SkillMeta]:
     """扫描 .agents/skills/ 目录，返回所有 Skill 的元数据列表（懒加载）。
 
-    查找策略：从 project_root（默认 os.getcwd()）开始向上查找 .agents/skills，
-    找到第一个就用——这样 repo 根目录共享一个技能库，所有项目都能读。
+    查找策略：从 project_root（默认 os.getcwd()，打包模式下改用 exe 所在目录）
+    开始向上查找 .agents/skills，找到第一个就用。
 
     Args:
-        project_root: 起始查找目录，默认 os.getcwd()
+        project_root: 起始查找目录；None 时：打包模式用 exe 所在目录，开发模式用 os.getcwd()
         verbose: True 时打印扫描过程（调试用）
 
     Returns:
         List[SkillMeta] — 成功解析的 skill 元数据；无 skill 时返回空列表
     """
-    start = Path(project_root or os.getcwd())
+    if project_root:
+        start = Path(project_root)
+    elif getattr(sys, "frozen", False):
+        # 打包模式：从 exe 所在目录向上走，和用户"放 exe 在哪都行"的直觉一致
+        start = Path(os.path.dirname(sys.executable))
+    else:
+        start = Path(os.getcwd())
+
     skills_dir = _find_skills_dir(start)
 
     if skills_dir is None:
@@ -111,22 +119,22 @@ def discover_skills(project_root: Optional[str] = None, verbose: bool = False) -
         try:
             raw = skill_md.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
-            print(f"[skill_loader] ⚠ 无法读取 {skill_md}: {e}")
+            print(f"[skill_loader] [WARN]  无法读取 {skill_md}: {e}")
             continue
 
         fm = _parse_frontmatter(raw)
         if fm is None:
-            print(f"[skill_loader] ⚠ {skill_md} ：YAML Frontmatter 缺失或格式错误")
+            print(f"[skill_loader] [WARN]  {skill_md} ：YAML Frontmatter 缺失或格式错误")
             continue
 
         name = str(fm.get("name", "")).strip()
         description = str(fm.get("description", "")).strip()
 
         if not name:
-            print(f"[skill_loader] ⚠ {skill_md} ：缺少必需字段 'name'，跳过")
+            print(f"[skill_loader] [WARN]  {skill_md} ：缺少必需字段 'name'，跳过")
             continue
         if not description:
-            print(f"[skill_loader] ⚠ {skill_md} ：缺少必需字段 'description'，跳过")
+            print(f"[skill_loader] [WARN]  {skill_md} ：缺少必需字段 'description'，跳过")
             continue
 
         skills.append(SkillMeta(
@@ -136,7 +144,7 @@ def discover_skills(project_root: Optional[str] = None, verbose: bool = False) -
             version=str(fm.get("version", "")).strip(),
         ))
         if verbose:
-            print(f"[skill_loader] ✅ 加载: {name} — {description}")
+            print(f"[skill_loader] [OK]    加载: {name} — {description}")
 
     return skills
 
