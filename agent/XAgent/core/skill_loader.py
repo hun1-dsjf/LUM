@@ -162,19 +162,13 @@ def format_skills_for_prompt(skills: List[SkillMeta]) -> str:
     if not skills:
         return ""
 
-    lines = [
-        "",
-        "【可用技能库】",
-        "你拥有以下扩展技能（元数据）：",
-    ]
-    for i, s in enumerate(skills, 1):
-        ver = f" (v{s.version})" if s.version else ""
-        lines.append(f"  {i}. 技能名：{s.name}{ver}")
-        lines.append(f"     描述：{s.description}")
+    lines = ["", "You have access to the following skills:"]
+    for s in skills:
+        lines.append(f"- '{s.name}': {s.description}")
 
     lines.extend([
         "",
-        "如果你判断当前用户的任务需要用到某个技能，请先告知用户，"
-        "然后调用 `load_skill_detail` 工具（待实现）以加载完整技能正文。",
+        "Use the 'loadSkill' tool to load the full instructions of a skill when needed. "
+        "You can also load additional files referenced by a skill.",
     ])
     return "\n".join(lines)
