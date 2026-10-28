@@ -56,23 +56,47 @@ def _parse_frontmatter(raw: str) -> Optional[dict]:
 
 # ========== 扫描与加载 ==========
 
+def _find_skills_dir(start: Path) -> Optional[Path]:
+    """从 start 目录向上查找，直到找到包含 .agents/skills 的父目录。
+
+    查找顺序：start → start.parent → ... → 根目录。
+    找到就返回 Path；整条链都没找到返回 None。
+    """
+    cursor = start.resolve()
+    for _ in range(20):  # 防无限循环，最多向上 20 层
+        candidate = cursor / ".agents" / "skills"
+        if candidate.is_dir():
+            return candidate
+        parent = cursor.parent
+        if parent == cursor:  # 到根了
+            break
+        cursor = parent
+    return None
+
+
 def discover_skills(project_root: Optional[str] = None, verbose: bool = False) -> List[SkillMeta]:
     """扫描 .agents/skills/ 目录，返回所有 Skill 的元数据列表（懒加载）。
 
+    查找策略：从 project_root（默认 os.getcwd()）开始向上查找 .agents/skills，
+    找到第一个就用——这样 repo 根目录共享一个技能库，所有项目都能读。
+
     Args:
-        project_root: 项目根目录，默认 os.getcwd()
+        project_root: 起始查找目录，默认 os.getcwd()
         verbose: True 时打印扫描过程（调试用）
 
     Returns:
         List[SkillMeta] — 成功解析的 skill 元数据；无 skill 时返回空列表
     """
-    root = Path(project_root or os.getcwd())
-    skills_dir = root / ".agents" / "skills"
+    start = Path(project_root or os.getcwd())
+    skills_dir = _find_skills_dir(start)
 
-    if not skills_dir.is_dir():
+    if skills_dir is None:
         if verbose:
-            print(f"[skill_loader] 未找到 skills 目录: {skills_dir}")
+            print(f"[skill_loader] 未找到 .agents/skills 目录（从 {start} 向上查找）")
         return []
+
+    if verbose:
+        print(f"[skill_loader] 技能目录: {skills_dir}")
 
     skills: List[SkillMeta] = []
     for entry in sorted(skills_dir.iterdir()):
