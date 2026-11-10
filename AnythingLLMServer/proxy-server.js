@@ -32,9 +32,15 @@ if (!API_KEY) {
 
 const app = express();
 
-// 允许浏览器直接打开本地 HTML 文件（file://）时跨域调用代理
+// 仅允许本地页面（file:// 的 Origin 为 null）与同端口页面跨域调用，避免任意网站驱动本代理
+const ALLOWED_ORIGINS = new Set(['null', `http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`]);
+
 app.use((req, res, next) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Vary', 'Origin');
+  }
   next();
 });
 

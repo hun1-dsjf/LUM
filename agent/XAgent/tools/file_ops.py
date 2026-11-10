@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import shutil
 
-from config.settings import SANDBOX_ROOT
+from config.config_manager import SANDBOX_ROOT
 
 
 # ========== 路径安全校验 ==========
@@ -155,6 +155,8 @@ def tool_create_dir(args: dict) -> str:
 
 
 def tool_delete_dir(args: dict) -> str:
+    if args.get("confirm") is not True:
+        return "已拒绝删除: 危险操作需要用户明确确认（请先询问用户，得到同意后传 confirm=true）"
     path = _validate_path(args.get("path", ""), must_exist=True, must_be_dir=True)
     if path == SANDBOX_ROOT:
         return "错误: 禁止删除沙箱根目录"
@@ -166,6 +168,8 @@ def tool_delete_dir(args: dict) -> str:
 
 
 def tool_delete_file(args: dict) -> str:
+    if args.get("confirm") is not True:
+        return "已拒绝删除: 危险操作需要用户明确确认（请先询问用户，得到同意后传 confirm=true）"
     path = _validate_path(args.get("path", ""), must_exist=True, must_be_file=True)
     try:
         os.remove(path)
@@ -224,12 +228,16 @@ TOOLS_SCHEMA = [
     {"type": "function", "function": {"name": "create_dir", "description": "创建新目录（支持递归创建）",
      "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "新目录路径"}},
                     "required": ["path"], "additionalProperties": False}}},
-    {"type": "function", "function": {"name": "delete_dir", "description": "删除目录（支持非空递归删除，危险操作）",
-     "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "要删除的目录路径"}},
-                    "required": ["path"], "additionalProperties": False}}},
-    {"type": "function", "function": {"name": "delete_file", "description": "删除指定文件（危险操作）",
-     "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "要删除的文件路径"}},
-                    "required": ["path"], "additionalProperties": False}}},
+    {"type": "function", "function": {"name": "delete_dir", "description": "删除目录（支持非空递归删除）。危险操作：必须先向用户确认，得到同意后才传 confirm=true",
+     "parameters": {"type": "object", "properties": {
+         "path": {"type": "string", "description": "要删除的目录路径"},
+         "confirm": {"type": "boolean", "description": "用户已明确同意删除时传 true"}
+     }, "required": ["path", "confirm"], "additionalProperties": False}}},
+    {"type": "function", "function": {"name": "delete_file", "description": "删除指定文件。危险操作：必须先向用户确认，得到同意后才传 confirm=true",
+     "parameters": {"type": "object", "properties": {
+         "path": {"type": "string", "description": "要删除的文件路径"},
+         "confirm": {"type": "boolean", "description": "用户已明确同意删除时传 true"}
+     }, "required": ["path", "confirm"], "additionalProperties": False}}},
     {"type": "function", "function": {"name": "rename_path", "description": "重命名文件或目录（仅支持同目录改名）",
      "parameters": {"type": "object", "properties": {
          "old_path": {"type": "string", "description": "原路径"},

@@ -75,6 +75,21 @@ def _find_skills_dir(start: Path) -> Optional[Path]:
     return None
 
 
+def get_skills_dir(project_root: Optional[str] = None) -> Optional[Path]:
+    """返回 .agents/skills/ 目录的绝对路径；未找到返回 None。
+
+    查找策略与 discover_skills 一致：从 project_root（默认 os.getcwd()，
+    打包模式用 exe 所在目录）向上遍历，找到第一个包含 .agents/skills 的父目录。
+    """
+    if project_root:
+        start = Path(project_root)
+    elif getattr(sys, "frozen", False):
+        start = Path(os.path.dirname(sys.executable))
+    else:
+        start = Path(os.getcwd())
+    return _find_skills_dir(start)
+
+
 def discover_skills(project_root: Optional[str] = None, verbose: bool = False) -> List[SkillMeta]:
     """扫描 .agents/skills/ 目录，返回所有 Skill 的元数据列表（懒加载）。
 
@@ -100,11 +115,11 @@ def discover_skills(project_root: Optional[str] = None, verbose: bool = False) -
 
     if skills_dir is None:
         if verbose:
-            print(f"[skill_loader] 未找到 .agents/skills 目录（从 {start} 向上查找）")
+            print(f"[skill_loader] 未找到 .agents/skills 目录（从 {start} 向上查找）", file=sys.stderr)
         return []
 
     if verbose:
-        print(f"[skill_loader] 技能目录: {skills_dir}")
+        print(f"[skill_loader] 技能目录: {skills_dir}", file=sys.stderr)
 
     skills: List[SkillMeta] = []
     for entry in sorted(skills_dir.iterdir()):
@@ -113,28 +128,28 @@ def discover_skills(project_root: Optional[str] = None, verbose: bool = False) -
         skill_md = entry / "SKILL.md"
         if not skill_md.is_file():
             if verbose:
-                print(f"[skill_loader] 跳过 {entry.name}/ ：缺少 SKILL.md")
+                print(f"[skill_loader] 跳过 {entry.name}/ ：缺少 SKILL.md", file=sys.stderr)
             continue
 
         try:
             raw = skill_md.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
-            print(f"[skill_loader] [WARN]  无法读取 {skill_md}: {e}")
+            print(f"[skill_loader] [WARN]  无法读取 {skill_md}: {e}", file=sys.stderr)
             continue
 
         fm = _parse_frontmatter(raw)
         if fm is None:
-            print(f"[skill_loader] [WARN]  {skill_md} ：YAML Frontmatter 缺失或格式错误")
+            print(f"[skill_loader] [WARN]  {skill_md} ：YAML Frontmatter 缺失或格式错误", file=sys.stderr)
             continue
 
         name = str(fm.get("name", "")).strip()
         description = str(fm.get("description", "")).strip()
 
         if not name:
-            print(f"[skill_loader] [WARN]  {skill_md} ：缺少必需字段 'name'，跳过")
+            print(f"[skill_loader] [WARN]  {skill_md} ：缺少必需字段 'name'，跳过", file=sys.stderr)
             continue
         if not description:
-            print(f"[skill_loader] [WARN]  {skill_md} ：缺少必需字段 'description'，跳过")
+            print(f"[skill_loader] [WARN]  {skill_md} ：缺少必需字段 'description'，跳过", file=sys.stderr)
             continue
 
         skills.append(SkillMeta(
@@ -144,7 +159,7 @@ def discover_skills(project_root: Optional[str] = None, verbose: bool = False) -
             version=str(fm.get("version", "")).strip(),
         ))
         if verbose:
-            print(f"[skill_loader] [OK]    加载: {name} — {description}")
+            print(f"[skill_loader] [OK]    加载: {name} — {description}", file=sys.stderr)
 
     return skills
 

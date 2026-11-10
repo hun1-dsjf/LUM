@@ -2,13 +2,61 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AnythingLLM 文档上传</title>
+  <style>
+    :root { --bg: #f6f8fb; --card: #fff; --text: #1f2937; --muted: #6b7280; --primary: #2563eb; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.6;
+    }
+    main {
+      width: 100%; max-width: 760px; margin: 0 auto; background: var(--card);
+      border-radius: 12px; padding: 24px; box-shadow: 0 6px 24px rgba(15, 23, 42, .08);
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p.hint { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    input[type=file] { flex: 1 1 260px; min-width: 0; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; }
+    button {
+      padding: 10px 18px; border: 0; border-radius: 8px; background: var(--primary);
+      color: #fff; font-size: 15px; cursor: pointer; min-width: 132px;
+    }
+    button:disabled { background: #9ca3af; cursor: not-allowed; }
+    #result {
+      margin-top: 20px; padding: 14px; border-radius: 8px; background: #0f172a; color: #e2e8f0;
+      font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: pre-wrap;
+      word-break: break-all; min-height: 48px;
+    }
+    #result.ok { background: #ecfdf5; color: #065f46; }
+    #result.err { background: #fef2f2; color: #991b1b; }
+    @media (max-width: 520px) {
+      body { padding: 12px; }
+      main { padding: 16px; border-radius: 8px; }
+      button { width: 100%; }
+    }
+  </style>
 </head>
 <body>
-  <h2>向 AnythingLLM 第一个工作区上传文档并嵌入</h2>
-  <input type="file" id="file">
-  <button id="upload">上传并嵌入</button>
-  <pre id="result" style="white-space: pre-wrap; font-family: monospace;"></pre>
+  <main>
+    <h1>向 AnythingLLM 工作区上传文档</h1>
+    <p class="hint">选择文件后点击上传，服务端会写入工作区并自动切分、向量化（embed）。</p>
+
+    <div class="row">
+      <input type="file" id="file" aria-label="选择要上传的文档">
+      <button id="upload">上传并嵌入</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label for="workspace" style="font-size:14px;color:var(--muted)">目标工作区</label>
+      <select id="workspace" aria-label="选择目标工作区"
+              style="flex:1 1 220px;min-width:0;padding:8px;border:1px solid #d1d5db;border-radius:8px;background:#fff">
+        <option value="">加载中…</option>
+      </select>
+    </div>
+    <pre id="result" aria-live="polite">等待上传…</pre>
+  </main>
 
   <script>
     // 请求走本地代理（proxy-server.js），API Key 由代理在服务端附加，前端不再持有任何密钥
@@ -17,25 +65,66 @@
     const fileInput = document.getElementById('file');
     const btn = document.getElementById('upload');
     const out = document.getElementById('result');
+    const wsSelect = document.getElementById('workspace');
+
+    function show(text, kind) {
+      out.textContent = text;
+      out.className = kind || '';
+    }
+
+    // 启动时拉取工作区列表，默认选中第一个；失败时保留提示并允许重试上传
+    async function loadWorkspaces() {
+      try {
+        const res = await fetch(PROXY + '/api/v1/workspaces');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const list = (data.workspaces || []).map(function (w) {
+          return { name: w.name || w.slug, slug: w.slug };
+        }).filter(function (w) { return !!w.slug; });
+
+        wsSelect.textContent = '';
+        if (!list.length) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = '（无可用工作区）';
+          wsSelect.appendChild(opt);
+          return;
+        }
+        list.forEach(function (w) {
+          const opt = document.createElement('option');   // 用 DOM API 赋值，避免把工作区名当 HTML 执行
+          opt.value = w.slug;
+          opt.textContent = w.name + '  (' + w.slug + ')';
+          wsSelect.appendChild(opt);
+        });
+        wsSelect.value = list[0].slug;
+      } catch (e) {
+        wsSelect.textContent = '';
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '工作区加载失败';
+        wsSelect.appendChild(opt);
+        show('工作区列表加载失败：' + e.message + '\n请确认代理与 AnythingLLM 已启动。', 'err');
+      }
+    }
 
     btn.addEventListener('click', async () => {
-      out.textContent = '';
+      show('', '');
       if (!fileInput.files[0]) {
-        out.textContent = '请先选择一个文件。';
+        show('请先选择一个文件。', 'err');
+        return;
+      }
+      const slug = wsSelect.value;
+      if (!slug) {
+        show('没有可用的工作区，请先在 AnythingLLM 中新建工作区后刷新页面。', 'err');
         return;
       }
       btn.disabled = true;
+      wsSelect.disabled = true;
       btn.textContent = '上传中…';
       try {
-        // 1. 获取第一个工作区的 slug
-        const wsRes = await fetch(PROXY + '/api/v1/workspaces');
-        if (!wsRes.ok) throw new Error('获取工作区失败：HTTP ' + wsRes.status);
-        const wsData = await wsRes.json();
-        const slug = wsData.workspaces && wsData.workspaces[0] && wsData.workspaces[0].slug;
-        if (!slug) throw new Error('没有可用的工作区。');
-        out.textContent = '使用工作区 slug: ' + slug + '\n上传中…\n';
+        show('使用工作区 slug: ' + slug + '\n上传中…\n');
 
-        // 2. 上传文档并自动嵌入到该工作区
+        // 上传文档并自动嵌入到所选工作区
         const fd = new FormData();
         fd.append('file', fileInput.files[0]);
         fd.append('addToWorkspaces', slug);
@@ -47,14 +136,21 @@
         const text = await upRes.text();
         let data;
         try { data = JSON.parse(text); } catch (e) { data = text; }
-        out.textContent = '工作区 slug: ' + slug + '\n\nHTTP ' + upRes.status + '\n' + JSON.stringify(data, null, 2);
+        if (!upRes.ok) {
+          throw new Error('上传失败：HTTP ' + upRes.status + '\n' + JSON.stringify(data, null, 2));
+        }
+        show('上传成功，已提交向量化\n工作区 slug: ' + slug + '\n\nHTTP ' + upRes.status +
+             '\n' + JSON.stringify(data, null, 2), 'ok');
       } catch (e) {
-        out.textContent = '错误: ' + e.message;
+        show('错误: ' + e.message, 'err');
       } finally {
         btn.disabled = false;
+        wsSelect.disabled = false;
         btn.textContent = '上传并嵌入';
       }
     });
+
+    loadWorkspaces();
   </script>
 </body>
 </html>

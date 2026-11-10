@@ -138,5 +138,5 @@ python chat_file_ops.py --prompt "列出当前目录的文件"
 
 ## 7. 注意
 
-- 代码中 `api_key` 为硬编码，**请勿把真实密钥提交到公开仓库**，建议改为从环境变量读取（如 `os.getenv("DEEPSEEK_API_KEY")`）。
-- `delete_dir` / `delete_file` 为危险操作，虽然已做沙箱限制，使用前仍建议确认路径。
+- 代码中 `api_key` 从环境变量 `API_KEY` 读取（见 `chat2.py` 第 23 行），请勿把真实密钥写进代码或提交到公开仓库：`set API_KEY=你的Key`（Windows PowerShell：`$env:API_KEY="你的Key"`）。
+- `delete_dir` / `delete_file` 为危险操作：已增加 `confirm=true` 二次确认与沙箱限制，仍需在执行前核对路径。

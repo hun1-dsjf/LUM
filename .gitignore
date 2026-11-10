@@ -57,3 +57,8 @@ installer/
 *.spec
 .unifypy/
 .unifypy_rollback/
+
+# ===== Agent 运行时产物（会话 / 归档 / 演示输出） =====
+agent/XAgent/.agents/
+office/
+agent/XAgent/办公室关于*.txt

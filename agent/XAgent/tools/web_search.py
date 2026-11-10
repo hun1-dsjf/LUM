@@ -17,12 +17,7 @@ import json
 import urllib.error
 import urllib.request
 
-from config.settings import SearchConfig
-
-# ========== 配置初始化 ==========
-
-_search_cfg = SearchConfig.from_ini()
-
+from config.config_manager import AGENT_CONFIG
 
 # ========== 工具实现 ==========
 
@@ -33,8 +28,8 @@ def _call_qianfan(query: str, top_k: int = 10) -> dict:
     返回格式（成功时）: [{"title": ..., "url": ..., "snippet": ..., "date": ..., "website": ...}]
     返回格式（失败时）: {"error": "错误描述"}
     """
-    global _search_cfg
-    if _search_cfg is None:
+    api_key = AGENT_CONFIG.qianfan_api_key
+    if not api_key:
         return {"error": "搜索功能未配置：请在 config.ini 的 [search] 小节填入 baidu_qianfan_api_key"}
 
     if not query or not query.strip():
@@ -43,17 +38,17 @@ def _call_qianfan(query: str, top_k: int = 10) -> dict:
     body = {
         "messages": [{"role": "user", "content": query.strip()}],
         "search_source": "baidu_search_v2",
-        "edition": _search_cfg.edition,
+        "edition": AGENT_CONFIG.search_edition,
         "resource_type_filter": [{"type": "web", "top_k": min(top_k, 20)}],
     }
 
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
-        _search_cfg.endpoint,
+        AGENT_CONFIG.qianfan_endpoint,
         data=data,
         method="POST",
         headers={
-            "Authorization": f"Bearer {_search_cfg.api_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
     )
